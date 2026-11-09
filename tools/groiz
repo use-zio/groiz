@@ -26,9 +26,34 @@ fi
 if [ -z "$ZIO_ROOT" ] && [ -d "$ROOT/zio" ]; then
   ZIO_ROOT="$ROOT/zio"
 fi
-if [ -z "$ZIO_ROOT" ] || [ ! -d "$ZIO_ROOT/langs/core" ]; then
-  echo "no Zio checkout: set ZIO_ROOT (looked at $(dirname "$ROOT")/zio and $ROOT/zio)" >&2
+if [ -n "$ZIO_ROOT" ] && [ ! -d "$ZIO_ROOT/langs/core" ]; then
+  echo "ZIO_ROOT set but not a Zio checkout: $ZIO_ROOT" >&2
   exit 2
+fi
+
+# The loom checkout (agent orchestration packages + the loom transport
+# crate). Same resolution order as the Zio checkout: a sibling `../loom`
+# is the development checkout; the `loom/` submodule is the default.
+# Zio's libs no longer carry the loom packages (2026-11-09 package
+# layering split), so the agent logic's `:libs.loom.*` requires resolve
+# against this second granted share.
+LOOM_ROOT="${LOOM_ROOT:-}"
+if [ -z "$LOOM_ROOT" ] && [ -d "$(dirname "$ROOT")/loom" ]; then
+  LOOM_ROOT="$(cd "$(dirname "$ROOT")/loom" && pwd)"
+fi
+if [ -z "$LOOM_ROOT" ] && [ -d "$ROOT/loom" ]; then
+  LOOM_ROOT="$ROOT/loom"
+fi
+if [ -z "$LOOM_ROOT" ] || [ ! -d "$LOOM_ROOT/libs/loom" ]; then
+  echo "no loom checkout: set LOOM_ROOT (looked at $(dirname "$ROOT")/loom and $ROOT/loom)" >&2
+  exit 2
+fi
+
+# With groiz's own zio submodule gone (one zio checkout in the build, the
+# loom pin), an explicit ZIO_ROOT wins, then the sibling dev checkout, and
+# the loom submodule's zio is the standalone default.
+if [ -z "$ZIO_ROOT" ] && [ -d "$LOOM_ROOT/zio/langs/core" ]; then
+  ZIO_ROOT="$LOOM_ROOT/zio"
 fi
 
 # A checkout needs its own build; an installed tree puts `zio` on PATH.
@@ -135,6 +160,7 @@ exec "$ZIO_BIN" \
   --app "$APP_ROOT/main.zio" \
   --app-root "$APP_ROOT" \
   --app-share "$ZIO_ROOT" \
+  --app-share "$LOOM_ROOT" \
   --app-resource-root "$ZIO_ROOT" \
   --app-web-root "$APP_ROOT/web" \
   --app-root-dir "$ROOT_DIR" \

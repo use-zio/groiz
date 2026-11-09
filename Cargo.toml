@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = ["native/learning", "native/app"]
-# The `zio/` submodule is its own cargo workspace. Without this, cargo
-# resolves the submodule's manifests against THIS workspace root, and the
-# crates there inherit `workspace = true` fields (zio-core) that this
-# manifest does not define.
-exclude = ["zio"]
+# The `zio/` and `loom/` submodules are their own cargo workspaces.
+# Without this, cargo resolves the submodules' manifests against THIS
+# workspace root, and the crates there inherit `workspace = true` fields
+# (zio-core) that this manifest does not define.
+exclude = ["zio", "loom"]
 
 # Groiz is a standalone repository. The Zio checkout it builds against is
 # the `zio/` submodule (the path dependencies in `native/*/Cargo.toml` name

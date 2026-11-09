@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use zio_core::context::EvalContext;
 use zio_core::error::EvalError;
 use zio_core::value::{NativeFn, Value};
+use std::sync::Arc;
 
 use crate::contracts::{ArtifactRef, Error, ErrorKind, Result, digest_bytes};
 
@@ -227,7 +228,7 @@ pub fn install(ctx: &EvalContext, store: Option<std::sync::Arc<crate::store::Sto
     let put_store = store.clone();
     ctx.env.set(
         "grove-artifact-put".to_string(),
-        Value::NativeFunction(NativeFn::new("grove-artifact-put", move |args, _engine| {
+        Value::NativeFunction(Arc::new(NativeFn::new("grove-artifact-put", move |args, _engine| {
             let store = put_store.as_ref().ok_or_else(|| {
                 EvalError::custom(
                     "capability-denied: grove store not installed (grove-artifact-put)",
@@ -243,13 +244,13 @@ pub fn install(ctx: &EvalContext, store: Option<std::sync::Arc<crate::store::Sto
             };
             let artifact = store.artifacts().put(text.as_bytes()).map_err(eval_err)?;
             Ok(Value::String(artifact.to_hex()))
-        })),
+        }))),
     );
 
     let get_store = store;
     ctx.env.set(
         "grove-artifact-get".to_string(),
-        Value::NativeFunction(NativeFn::new("grove-artifact-get", move |args, _engine| {
+        Value::NativeFunction(Arc::new(NativeFn::new("grove-artifact-get", move |args, _engine| {
             let store = get_store.as_ref().ok_or_else(|| {
                 EvalError::custom(
                     "capability-denied: grove store not installed (grove-artifact-get)",
@@ -268,7 +269,7 @@ pub fn install(ctx: &EvalContext, store: Option<std::sync::Arc<crate::store::Sto
             let text = String::from_utf8(bytes)
                 .map_err(|e| EvalError::custom(format!("grove-artifact-get: {e}")))?;
             Ok(Value::String(text))
-        })),
+        }))),
     );
 }
 

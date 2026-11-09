@@ -3,19 +3,21 @@
 # language pages) is a separate repository and owns the public origin and
 # the `/wasm/*` bundle; Groiz serves only its own control plane.
 #
-# Zio arrives as the `zio/` git submodule (see .gitmodules), whose pinned
-# revision is the exact Zio this image builds against. The build host must
-# fetch it with credentials for use-zio/zio — an anonymous clone of a
-# private repository is not a build, it is a 404. `git submodule update
-# --remote zio` moves the submodule to the development branch.
+# Zio arrives through the `loom/` git submodule (see .gitmodules): loom is
+# the agent-orchestration repository groiz consumes, and since the 2026-11-09
+# package layering split loom carries the language checkout it builds
+# against (`loom/zio`). The build host must fetch the submodules with
+# credentials for use-zio/loom and use-zio/zio — an anonymous clone of a
+# private repository is not a build, it is a 404. The pinned revisions are
+# the exact Zio and Loom this image builds against.
 FROM rust:1-bookworm AS zio-build
 WORKDIR /src/zio
-COPY zio /src/zio
+COPY loom/zio /src/zio
 # A submodule that was not fetched leaves an empty directory here, and the
 # build would then fail somewhere inside cargo with a message about a
 # missing manifest. Say what actually went wrong instead.
 RUN test -f langs/core/Cargo.toml || { \
-      echo "the zio/ submodule is empty: fetch it with credentials for use-zio/zio" >&2; \
+      echo "loom/zio is empty: fetch the submodules (git submodule update --init --recursive) with credentials for use-zio/loom and use-zio/zio" >&2; \
       exit 1; \
     }
 # libclang is the same build dependency the Zio image needs: zio-js binds
@@ -55,6 +57,7 @@ USER grove
 # named by the application.
 ENV ZIO_ROOT=/opt/zio \
     ZIO_BIN=/opt/zio/target/release/zio-cli \
+    LOOM_ROOT=/opt/groiz/loom \
     GROIZ_APP_ROOT=/opt/groiz \
     GROIZ_ROOT=/srv/grove/data \
     GROIZ_WORKERS=2 \

@@ -82,6 +82,7 @@
       {:zio-bin zio-bin
        :scratch scratch
        :app-share (get launcher :app-share "")
+       :app-shares (get launcher :app-shares [])
        :step-limit (get agent--defaults :step-limit)
        :timeout-ms (get agent--defaults :timeout-ms)})}))
 

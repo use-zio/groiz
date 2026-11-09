@@ -51,11 +51,11 @@
 //! writer; it does not re-implement the index arithmetic in a second
 //! place.
 
-use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use zio_core::context::{EvalContext, EvalRuntime};
 use zio_core::env::Env;
+use zio_core::gc::Gc;
 use zio_core::error::EvalError;
 use zio_core::value::Value;
 
@@ -140,7 +140,7 @@ impl ExperienceIndexEntry {
 /// loaded. Building it is the Rust↔zio boundary; every index computation
 /// below really runs the shipped library source.
 pub fn memory_context() -> Result<EvalContext> {
-    let env = Arc::new(Env::new(None));
+    let env = Gc::new(Env::new(None));
     zio_core::builtins::setup_env(&env);
     let ctx = EvalContext::new(env);
     load_source(&ctx, "core.zio", zio_core::stdlib_source());

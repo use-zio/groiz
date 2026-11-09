@@ -15,6 +15,7 @@ pub mod population;
 pub mod runner;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use grove::contracts::{Actor, ActorRole, Error, ErrorKind, Result};
 use grove::store::Store;
@@ -153,17 +154,17 @@ pub fn select_candidates(
                     (Value::Keyword("index".into()), Value::Integer(index as i64)),
                     (
                         Value::Keyword("mean".into()),
-                        Value::Vector(
+                        Value::Vector(Arc::new(
                             row.mean
                                 .iter()
                                 .map(|(name, value)| {
-                                    Value::Vector(vector![
+                                    Value::Vector(Arc::new(vector![
                                         Value::String(name.clone()),
                                         Value::Float(*value)
-                                    ])
+                                    ]))
                                 })
                                 .collect(),
-                        ),
+                        )),
                     ),
                     // ponytail: uniform cost preserves existing CLI/HTTP semantics; use measured inference cost when available.
                     (Value::Keyword("cost".into()), Value::Float(1.0)),
@@ -178,7 +179,7 @@ pub fn select_candidates(
         })
         .collect();
     ctx.env
-        .set("grove-selection-rows".into(), Value::Vector(input));
+        .set("grove-selection-rows".into(), Value::Vector(Arc::new(input)));
     let result = zio_core::eval::eval_in_context(
         &Sexp::List(
             vector![
@@ -277,11 +278,17 @@ pub struct Paths {
     /// The repository root: the worker's cwd, so the frozen data paths in
     /// requests resolve the same way from any harness.
     pub root: PathBuf,
-    /// The Zio checkout this application loads its `libs/**` modules from:
-    /// the `zio/` submodule by default, and the same root the launcher
-    /// grants as `--app-share`. A tree that carries its own `libs/` is its
-    /// own share.
+    /// The Zio checkout this application loads its built-in `libs/**`
+    /// modules from (rill today): the `zio/` submodule by default, and the
+    /// first root the launcher grants as `--app-share`. A tree that
+    /// carries its own `libs/` is its own share.
     pub share: PathBuf,
+    /// The loom checkout (agent orchestration packages): the `loom/`
+    /// submodule by default, a sibling `../loom` when present. Zio's libs
+    /// no longer carry the loom packages (2026-11-09 package layering
+    /// split), so `:libs.loom.*` resolves against this second granted
+    /// share.
+    pub loom_share: PathBuf,
 }
 
 impl Paths {
@@ -293,14 +300,22 @@ impl Paths {
             .unwrap()
             .to_path_buf();
         // A sibling `../zio` is the development checkout and wins when it
-        // is there; otherwise the submodule inside the repository is the
-        // share. The repository root itself is the last resort: it has no
-        // `libs/`, so loading `libs.**` from it fails.
+        // is there; otherwise the language tree rides in through the loom
+        // submodule's own zio pin (groiz no longer carries a zio submodule
+        // of its own — one zio checkout in the build, the loom pin).
         let share = root
             .parent()
             .map(|siblings| siblings.join("zio"))
             .filter(|sibling| sibling.join("libs").is_dir())
-            .unwrap_or_else(|| root.join("zio"));
+            .unwrap_or_else(|| root.join("loom/zio"));
+        // The loom checkout resolves the same way: a sibling `../loom` is
+        // the development checkout; the submodule inside the repository is
+        // the default.
+        let loom_share = root
+            .parent()
+            .map(|siblings| siblings.join("loom"))
+            .filter(|sibling| sibling.join("libs/loom").is_dir())
+            .unwrap_or_else(|| root.join("loom"));
         Self {
             python: root.join(".venv/bin/python"),
             generate: root.join("examples/self-learning/generate.py"),
@@ -308,6 +323,7 @@ impl Paths {
             task: root.join("examples/self-learning"),
             root,
             share,
+            loom_share,
         }
     }
 }
