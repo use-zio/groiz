@@ -184,6 +184,7 @@ fn run(args: &[String]) -> Result<String, grove::contracts::Error> {
                 grant,
                 Paths::from_repo_root().root,
                 Paths::from_repo_root().share,
+                Paths::from_repo_root().loom_share,
                 model_host,
             )?;
             let logic = opts.logic.clone();

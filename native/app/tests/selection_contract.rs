@@ -29,7 +29,7 @@ fn selection_keeps_quality_cost_alternatives_without_gate_failed_dominators() {
         other => panic!("selection returned {other}, not row indices"),
     };
     assert_eq!(
-        ids.into_iter().collect::<Vec<_>>(),
+        ids.iter().cloned().collect::<Vec<_>>(),
         vec![Value::Integer(0), Value::Integer(1)]
     );
     for input in [

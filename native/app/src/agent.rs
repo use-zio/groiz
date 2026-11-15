@@ -217,13 +217,15 @@ impl AgentHost {
         grant: GrantProfile,
         root: PathBuf,
         share: PathBuf,
+        loom_share: PathBuf,
         model_host: Arc<dyn harness::ModelHost>,
     ) -> Result<(Arc<Self>, EvalContext)> {
         // The application's own directory resolves its sibling sources; the
-        // Zio checkout supplies the `libs/...` modules it requires. Both are
-        // module roots, which is a search path, not an authority: the logic
-        // file itself still has to live inside `root`.
-        let mut roots = vec![root.clone(), share];
+        // Zio checkout supplies the built-in `libs/...` modules and the loom
+        // checkout the `libs/loom/...` ones the agent logic requires. All
+        // are module roots, which is a search path, not an authority: the
+        // logic file itself still has to live inside `root`.
+        let mut roots = vec![root.clone(), share, loom_share];
         for input in &task.inputs {
             roots.push(input.clone());
         }
@@ -263,17 +265,18 @@ impl AgentHost {
         let for_completion = Arc::clone(self);
         ctx.env.set(
             "harness-complete".to_string(),
-            Value::NativeFunction(NativeFn::new("harness-complete", move |args, _engine| {
-                for_completion.complete(args)
-            })),
+            Value::NativeFunction(Arc::new(NativeFn::new(
+                "harness-complete",
+                move |args, _engine| for_completion.complete(args),
+            ))),
         );
         let for_execution = Arc::clone(self);
         ctx.env.set(
             "harness-execute-zio".to_string(),
-            Value::NativeFunction(NativeFn::new(
+            Value::NativeFunction(Arc::new(NativeFn::new(
                 "harness-execute-zio",
                 move |args, _engine| for_execution.execute_zio(args),
-            )),
+            ))),
         );
     }
 
@@ -291,17 +294,17 @@ impl AgentHost {
             [
                 (
                     Value::Keyword("complete".to_string()),
-                    Value::NativeFunction(NativeFn::new(
+                    Value::NativeFunction(Arc::new(NativeFn::new(
                         "harness-complete",
                         move |args, _engine| for_completion.complete(args),
-                    )),
+                    ))),
                 ),
                 (
                     Value::Keyword("execute".to_string()),
-                    Value::NativeFunction(NativeFn::new(
+                    Value::NativeFunction(Arc::new(NativeFn::new(
                         "harness-execute-zio",
                         move |args, _engine| for_execution.execute_zio(args),
-                    )),
+                    ))),
                 ),
             ]
             .into_iter()
@@ -317,7 +320,7 @@ impl AgentHost {
     /// ask the model to write code without the task, and the record
     /// would show a "generated candidate" that answered a different
     /// question.
-    fn complete(self: &Arc<Self>, args: Vector<Value>) -> std::result::Result<Value, EvalError> {
+    fn complete(self: &Arc<Self>, args: &[Value]) -> std::result::Result<Value, EvalError> {
         // `(harness-complete task feedback)`: the task is the first
         // argument, and the feedback is the second. Reading argument one
         // as the failure — which is what the first version did — sends
@@ -418,8 +421,8 @@ impl AgentHost {
     }
 
     /// One authorized execution of generated code.
-    fn execute_zio(self: &Arc<Self>, args: Vector<Value>) -> std::result::Result<Value, EvalError> {
-        let source = match args.front() {
+    fn execute_zio(self: &Arc<Self>, args: &[Value]) -> std::result::Result<Value, EvalError> {
+        let source = match args.first() {
             Some(Value::String(s)) => s.clone(),
             Some(other) => {
                 return Err(EvalError::type_error("source string", other.value_type()));
@@ -533,7 +536,7 @@ impl AgentHost {
             .collect(),
         );
 
-        let outcome = call_value(ctx, entry, Vector::from(vec![task, budget]))
+        let outcome = call_value(ctx, entry, vec![task, budget])
             .map_err(|e| Error::new(ErrorKind::BackendFailed, format!("agent logic: {e}")))?;
         let map = match &outcome {
             Value::Map(map) => map.clone(),
@@ -767,7 +770,7 @@ fn outcome_to_value(outcome: &ExecutionResult) -> std::result::Result<Value, Eva
 fn call_value(
     ctx: &EvalContext,
     func: Value,
-    args: Vector<Value>,
+    args: Vec<Value>,
 ) -> std::result::Result<Value, EvalError> {
     let mut step = zio_core::eval::apply(func, args, ctx)?;
     loop {

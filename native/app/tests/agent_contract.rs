@@ -132,6 +132,7 @@ fn setup(
         candidate_grant(&budget(3), Vec::new()),
         repo_root(),
         grove_app::Paths::from_repo_root().share,
+        grove_app::Paths::from_repo_root().loom_share,
         model,
     )
     .expect("assemble host");

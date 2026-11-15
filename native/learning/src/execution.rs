@@ -30,10 +30,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Instant;
 
-use zio_core::bootstrap::{ModuleRoots, eval_source, language_context, language_context_with_io};
+use zio_core::bootstrap::{ModuleRoots, eval_source, language_context};
 use zio_core::context::{EvalContext, EvalRuntime};
 use zio_core::error::EvalError;
-use zio_core::im::Vector;
 use zio_core::macros;
 use zio_core::observer;
 use zio_core::sexp::Sexp;
@@ -723,7 +722,7 @@ pub fn execute(store: &Store, actor: &Actor, request: ExecutionRequest) -> Resul
         // position hands back a `TailCall` that the trampoline has to
         // drive. Unwrapping it directly is the `try` bug again, in a
         // different place.
-        let mut step = zio_core::eval::apply(entry, Vector::new(), &ctx)?;
+        let mut step = zio_core::eval::apply(entry, Vec::new(), &ctx)?;
         loop {
             match step {
                 zio_core::special::TailResult::Value(value) => return Ok(value),

@@ -78,9 +78,10 @@
   (let [behavior (get budget :behavior nil)
         max-turns (get budget :max_turns 0)]
     (if (nil? behavior)
-      (let [provider (agent--load-provider (get budget :provider_config ""))
+        (let [provider (agent--load-provider (get budget :provider_config ""))
             launcher {:worker-scratch (get budget :worker_scratch "")
-                      :app-share (get budget :app_share "")}]
+                      :app-share (get budget :app_share "")
+                      :app-shares (get budget :app_shares [])}]
         (agent-run task (assoc (agent--behavior provider launcher)
                            :max-turns max-turns)))
       (agent-run task (assoc behavior :max-turns max-turns)))))

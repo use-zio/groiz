@@ -634,15 +634,16 @@ fn grove_attach_registers_artifact_bindings() {
     use std::sync::Arc;
     use zio_core::context::EvalContext;
     use zio_core::env::Env;
+use zio_core::gc::Gc;
 
-    let ctx = EvalContext::new(Arc::new(Env::new(None)));
+    let ctx = EvalContext::new(Gc::new(Env::new(None)));
     grove::install(&ctx, None);
     assert!(
         ctx.env.get("grove-artifact-put").is_some(),
         "attach must register the binding even when unprovisioned"
     );
     // Unprovisioned capability is a stable error class, not a missing symbol.
-    let ctx2 = EvalContext::new(Arc::new(Env::new(None)));
+    let ctx2 = EvalContext::new(Gc::new(Env::new(None)));
     grove::install(&ctx2, None);
     assert!(ctx2.env.get("grove-artifact-get").is_some());
 }
