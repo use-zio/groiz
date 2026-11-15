@@ -1,4 +1,4 @@
 [submodule "loom"]
 	path = loom
 	url = https://github.com/use-zio/loom.git
-	branch = dev
+	branch = main
